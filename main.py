@@ -4,6 +4,7 @@ import math
 from random import randrange
 import copy
 import solve
+import os
 
 class Game:
     #initializing
@@ -29,7 +30,7 @@ class Game:
         self.color_button_selected = 240, 101, 67
         self.color_background = 255, 255, 255
         self.color_font = 0, 0, 0
-
+        self.color_arrow = 0, 0, 0
         self.size = int(100)
         self.boardSide = self.size * 6
         self.screen = pygame.display.set_mode((1000, 600))
@@ -43,11 +44,20 @@ class Game:
         self.buttons_diff = [pygame.Rect(635 + i*70, 350, 50, 50) for i in range(5)]
         self.last_moves = [] # [block , x, y]
         self.difficulty = difficulty
+        self.sol = None
+        self.step = 0
+        self.arrow = None
 
     def reset(self):
         RetteDenBlock = Game(self.min_moves, self.listOfBlocks, self.difficulty)
         RetteDenBlock.play()
 
+    def softReset(self):
+        self.setupBoard()
+        self.last_moves = []
+        self.moves = 0
+        self.setup()
+ 
     def setupBoard(self):
         for i, val in enumerate(self.listOfBlocks):
             self.board[i//6][i%6] = val
@@ -71,12 +81,16 @@ class Game:
                         if self.last_moves:
                             x1, y1, move = self.last_moves.pop()
                             self.moveBlock(x1, y1, 0, 0, move=move) # x2 and y2 are irrelevant when move is given
-                            self.last_moves.pop() # TODO not sure about that one
+                            self.last_moves.pop()
                             self.moves -= 2
                             self.marked = []
                             return None
                     elif self.button_solve.collidepoint(pos):
-                        solve.solve(self.listOfBlocks)
+                        if not self.sol:
+                            self.sol = solve.solve(self.listOfBlocks)
+                        self.softReset()
+                        self.addArrow(self.sol[0])
+                        return None
                     elif pos[0] <= 600 and pos[1] <= 600:
                         ret = self.clickOnBoard(pos)
                         if ret != None:
@@ -90,6 +104,31 @@ class Game:
                     elif self.buttons_diff[2].collidepoint(pos): return self.clickOnDifficulty(2)
                     elif self.buttons_diff[3].collidepoint(pos): return self.clickOnDifficulty(3)
                     elif self.buttons_diff[4].collidepoint(pos): return self.clickOnDifficulty(4)
+
+    def getStartBlock(self, move):
+        if move[1] < 0 or move[2] < 0:
+            for x in range(6):
+                for y in range(6):
+                    if self.board[y][x] == move[0]:
+                        return [x, y]
+        else:
+            for x in reversed(range(6)):
+                for y in reversed(range(6)):
+                    if self.board[y][x] == move[0]:
+                        return [x, y]
+    
+    def addArrow(self, move):
+        sb = self.getStartBlock(move)   # start_block
+        eb = [sb[0] + move[1], sb[1] + move[2]] # end_block
+        s = self.size
+        if move[1] > 0:
+            self.arrow = ((s*sb[0]+40, s*sb[1]+40), (s*sb[0]+40, s*sb[1]+60), (s*sb[0]+move[1]*s, s*sb[1]+60), (s*sb[0]+move[1]*s, s*sb[1]+70), (s*eb[0]+50, s*eb[1]+50), (s*sb[0]+move[1]*s, s*sb[1]+30), (s*sb[0]+move[1]*s, s*sb[1]+40))
+        elif move[1] < 0:
+            self.arrow = ((s*sb[0]+60, s*sb[1]+40), (s*sb[0]+60, s*sb[1]+60), (s*sb[0]+100+move[1]*s, s*sb[1]+60), (s*sb[0]+100+move[1]*s, s*sb[1]+70), (s*eb[0]+50, s*eb[1]+50), (s*sb[0]+100+move[1]*s, s*sb[1]+30), (s*sb[0]+100+move[1]*s, s*sb[1]+40))
+        elif move[2] > 0:
+            self.arrow = ((s*sb[0]+40, s*sb[1]+40), (s*sb[0]+60, s*sb[1]+40), (s*sb[0]+60, s*sb[1]+move[2]*s), (s*sb[0]+70, s*sb[1]+move[2]*s), (s*eb[0]+50, s*eb[1]+50), (s*sb[0]+30, s*sb[1]+move[2]*s), (s*sb[0]+40, s*sb[1]+move[2]*s))
+        else:
+            self.arrow = ((s*sb[0]+40, s*sb[1]+60), (s*sb[0]+60, s*sb[1]+60), (s*sb[0]+60, s*sb[1]+100+move[2]*s), (s*sb[0]+70, s*sb[1]+100+move[2]*s), (s*eb[0]+50, s*eb[1]+50), (s*sb[0]+30, s*sb[1]+100+move[2]*s), (s*sb[0]+40, s*sb[1]+100+move[2]*s))
 
     def clickOnDifficulty(self, difficulty):
         self.difficulty = difficulty
@@ -133,6 +172,14 @@ class Game:
                 if abs(move_y) < abs(move[1]):
                     move[1] = move_y
         self.last_moves.append([x2, y2, [-move[0],-move[1]]])
+        if self.arrow:
+            if move[0] == self.sol[self.step][1] and move[1] == self.sol[self.step][2]:
+                self.step += 1
+                if self.step < self.min_moves:
+                    self.addArrow(self.sol[self.step])
+            else:
+                self.step = 0
+                self.arrow = None
         self.moves += 1
         for x, y in cells:
             self.board[y][x] = 'o'
@@ -248,6 +295,9 @@ class Game:
                 pygame.draw.rect(image, color, (0,0,length, height))
                 
                 screen.blit(image, (j*self.size+hor, i*self.size+ver))
+
+        if self.arrow:
+            pygame.draw.polygon(screen, self.color_arrow, self.arrow)
 
         # number of moves
         font = pygame.font.SysFont('Arial Bold', 50)
