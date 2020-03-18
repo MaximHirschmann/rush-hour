@@ -9,7 +9,7 @@ import os
 class Game:
     #initializing
     def __init__(self, moves, board, difficulty):
-        self.listOfBlocks = board
+        self.listOfBlocks = board   # string of the initial board configuration
         self.blocks = []
         self.board = [
             ['o', 'o', 'o', 'o', 'o', 'o'] ,
@@ -19,6 +19,7 @@ class Game:
             ['o', 'o', 'o', 'o', 'o', 'o'] ,
             ['o', 'o', 'o', 'o', 'o', 'o']
         ]
+        # colors
         self.color_blocks = 106, 141, 115
         self.color_blocks_selected = 86, 121, 95
         self.color_start_block = 240, 101, 67
@@ -31,40 +32,43 @@ class Game:
         self.color_background = 255, 255, 255
         self.color_font = 0, 0, 0
         self.color_arrow = 0, 0, 0
+
         self.size = int(100)
         self.boardSide = self.size * 6
         self.screen = pygame.display.set_mode((1000, 600))
-        self.marked = []
-        self.moves = 0
-        self.min_moves = int(moves)
+        self.marked = []    # which block is currently selected
+        self.moves = 0      # moves done
+        self.min_moves = int(moves) # minimum required moves for a solution
+        self.last_moves = [] # [block , x, y]
+        self.difficulty = difficulty # current difficulty
+        self.sol = None # list of the moves for the solution
+        self.step = 0 # at which step of the solution
+        self.arrow = None # currently shown arrow
+        # buttons
         self.button_next = pygame.Rect(870, 200, 100, 50)
         self.button_reset = pygame.Rect(750, 200, 100, 50)
         self.button_back = pygame.Rect(630, 200, 100, 50)
         self.button_solve = pygame.Rect(750, 450, 100, 50)
         self.buttons_diff = [pygame.Rect(635 + i*70, 350, 50, 50) for i in range(5)]
-        self.last_moves = [] # [block , x, y]
-        self.difficulty = difficulty
-        self.sol = None
-        self.step = 0
-        self.arrow = None
-
+       
+    # restart the game with the same configuration
     def reset(self):
         RetteDenBlock = Game(self.min_moves, self.listOfBlocks, self.difficulty)
         RetteDenBlock.play()
-
+    # set to initial configuration
     def softReset(self):
         self.setupBoard()
         self.last_moves = []
         self.moves = 0
         self.setup()
- 
+    # changes the board to the initial configuration
     def setupBoard(self):
         for i, val in enumerate(self.listOfBlocks):
             self.board[i//6][i%6] = val
-
-    def endGame(self):
+    # returns bool if the game is over
+    def isGameOver(self):
         return self.board[2][5] == "A"
-
+    # manages clicks
     def click(self):
         while True:
             for event in pygame.event.get():
@@ -96,7 +100,6 @@ class Game:
                         if ret != None:
                             x1, y1, x2, y2 = ret
                             if self.isLegal(x1, y1, x2, y2):
-                                # i dont know why we have to specify that move has to be [7,7] but if its removed it breaks
                                 self.moveBlock(x1, y1, x2, y2, move=[7,7]) 
                                 return None
                     elif self.buttons_diff[0].collidepoint(pos): return self.clickOnDifficulty(0)
@@ -104,7 +107,7 @@ class Game:
                     elif self.buttons_diff[2].collidepoint(pos): return self.clickOnDifficulty(2)
                     elif self.buttons_diff[3].collidepoint(pos): return self.clickOnDifficulty(3)
                     elif self.buttons_diff[4].collidepoint(pos): return self.clickOnDifficulty(4)
-
+    # returns the position of the cell of a block which is the nearest to the end position
     def getStartBlock(self, move):
         if move[1] < 0 or move[2] < 0:
             for x in range(6):
@@ -116,7 +119,7 @@ class Game:
                 for y in reversed(range(6)):
                     if self.board[y][x] == move[0]:
                         return [x, y]
-    
+    # modifies self.arrow to a polygon given a move
     def addArrow(self, move):
         sb = self.getStartBlock(move)   # start_block
         eb = [sb[0] + move[1], sb[1] + move[2]] # end_block
@@ -129,10 +132,11 @@ class Game:
             self.arrow = ((s*sb[0]+40, s*sb[1]+40), (s*sb[0]+60, s*sb[1]+40), (s*sb[0]+60, s*sb[1]+move[2]*s), (s*sb[0]+70, s*sb[1]+move[2]*s), (s*eb[0]+50, s*eb[1]+50), (s*sb[0]+30, s*sb[1]+move[2]*s), (s*sb[0]+40, s*sb[1]+move[2]*s))
         else:
             self.arrow = ((s*sb[0]+40, s*sb[1]+60), (s*sb[0]+60, s*sb[1]+60), (s*sb[0]+60, s*sb[1]+100+move[2]*s), (s*sb[0]+70, s*sb[1]+100+move[2]*s), (s*eb[0]+50, s*eb[1]+50), (s*sb[0]+30, s*sb[1]+100+move[2]*s), (s*sb[0]+40, s*sb[1]+100+move[2]*s))
-
+    
     def clickOnDifficulty(self, difficulty):
         self.difficulty = difficulty
-
+    # manages clicks on the board
+    # returns x1, y1, x2, y2 when its the second click on the board
     def clickOnBoard(self, pos):
         if len(self.marked) == 0:
             x1 = pos[0] // 100
@@ -145,6 +149,7 @@ class Game:
             x2 = pos[0] // 100
             y2 = pos[1] // 100
             block, x1, y1 = self.marked.pop()
+            # change marked block if another block was clicked
             if self.board[y2][x2] != "o":
                 if self.board[y2][x2] != block:
                     block = self.board[y2][x2]
@@ -152,7 +157,8 @@ class Game:
                 self.setup()
             else:
                 return x1,y1,x2,y2
-
+    # moves a block given x1, y1, x2, y2 or a move and x1, y1
+    # for example self.moveBlock(x1, y1, x2, y2) or self.moveBlock(x1, y1, 0, 0, move=[0, 1])
     def moveBlock(self, x1, y1, x2, y2, move = [7,7]):
         block = self.board[y1][x1]
         
@@ -171,22 +177,26 @@ class Game:
                     move[0] = move_x
                 if abs(move_y) < abs(move[1]):
                     move[1] = move_y
+        # add the move to last_moves
         self.last_moves.append([x2, y2, [-move[0],-move[1]]])
+        # check if its the same move the arrow describes
         if self.arrow:
             if move[0] == self.sol[self.step][1] and move[1] == self.sol[self.step][2]:
+                # add next arrow
                 self.step += 1
                 if self.step < self.min_moves:
                     self.addArrow(self.sol[self.step])
             else:
+                # remove arrow
                 self.step = 0
                 self.arrow = None
         self.moves += 1
+        # modify board
         for x, y in cells:
             self.board[y][x] = 'o'
         for x, y in cells:
             self.board[y+move[1]][x+move[0]] = block
-
-
+    # returns True when the move is legal else False
     def isLegal(self, x1, y1, x2, y2):
         if x1-x2 != 0 and y1-y2 != 0:
             return False
@@ -208,6 +218,8 @@ class Game:
                     isHorizontalBlock = True
             if not isHorizontalBlock:
                 return False
+
+            # check if there are blocks between the end and start position of the block
             if x1 < x2:
                 for i in range(x1+1, x2+1):
                     if self.board[y1][i] != 'o' and self.board[y1][i] != block:
@@ -227,7 +239,7 @@ class Game:
                     isVerticalBlock = True
             if not isVerticalBlock:
                 return False
-            
+            # check if there are blocks between the end and start position of the block
             if y1 < y2:
                 for i in range(y1+1, y2+1):
                     if self.board[i][x1] != 'o' and self.board[i][x1] != block:
@@ -237,11 +249,7 @@ class Game:
                     if self.board[i][x1] != 'o' and self.board[i][x1] != block:
                         return False
         return True
-
-    def printBoard(self):
-        for i in self.board:
-            print(i)
-
+    # setups board
     def setup(self):
         pygame.init()
         screen = self.screen
@@ -259,13 +267,14 @@ class Game:
                 count +=1
             count-=1
         pygame.draw.rect(screen,self.color_tile_finish,[500,200,100,100])
-
+        # add blocks
         for i in range(6):
             for j in range(6):
                 if self.board[i][j] == "o":
                     continue
                 block = self.board[i][j]
                 color = self.color_blocks
+                # fill inner of the cells
                 if block == "A":
                     color = self.color_start_block
                 if block in [i[0] for i in self.marked]:
@@ -273,6 +282,7 @@ class Game:
                         color = self.color_blocks_selected
                     else:
                         color = self.color_start_block_selected
+                # fill spaces between cells if cells are of the same block
                 hor = 5
                 ver = 5
                 height = 90
@@ -292,10 +302,10 @@ class Game:
                         length += 5
                         hor -= 5
                 image = pygame.Surface((length,height))
-                pygame.draw.rect(image, color, (0,0,length, height))
+                pygame.draw.rect(image, color, (0,0,length,height))
                 
                 screen.blit(image, (j*self.size+hor, i*self.size+ver))
-
+        # draw arrow
         if self.arrow:
             pygame.draw.polygon(screen, self.color_arrow, self.arrow)
 
@@ -303,26 +313,26 @@ class Game:
         font = pygame.font.SysFont('Arial Bold', 50)
         movessurface = font.render(str(self.moves)+" / "+str(self.min_moves), False, self.color_font)
         screen.blit(movessurface,(765,70))
-
+        # Difficulty text
         movessurface = font.render("Difficulty:", False, self.color_font)
         screen.blit(movessurface,(720, 290))
-
+        # Next button
         pygame.draw.rect(screen, self.color_button, self.button_next)
         movessurface = font.render("Next", False, self.color_font)
         screen.blit(movessurface, (882, 210))
-
+        # Reset button
         pygame.draw.rect(screen, self.color_button, self.button_reset)
         movessurface = font.render("Reset", False, self.color_font)
         screen.blit(movessurface, (753, 210))
-        
+        # Back button
         pygame.draw.rect(screen, self.color_button, self.button_back)
         movessurface = font.render("Back", False, self.color_font)
         screen.blit(movessurface, (638, 210))
-
+        # Solve button
         pygame.draw.rect(screen, self.color_button, self.button_solve)
         movessurface = font.render("Solve", False, self.color_font)
         screen.blit(movessurface, (755, 458))
-
+        # difficulty buttons
         for i in range(5):
             if i == self.difficulty:
                 color = self.color_button_selected
@@ -337,7 +347,7 @@ class Game:
     def play(self):
         self.setupBoard()
         self.setup()
-        while self.endGame() != 1:
+        while self.isGameOver() == 0:
             #self.printBoard()
             self.click()
             self.setup()
