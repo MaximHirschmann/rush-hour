@@ -3,7 +3,7 @@ A version of the game Rush Hour with an integrated solver written in python.
 # Requirements
 python 3
 
-pygame (install using pip install pygame)
+pygame (install using "pip install pygame" in cmd)
 # Running the game
 ```
 python main.py
