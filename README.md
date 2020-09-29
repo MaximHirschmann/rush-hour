@@ -9,4 +9,4 @@ pygame (install using "pip install pygame" in cmd)
 python main.py
 ```
 # Preview
-![View](https://imgur.com/0D82bTA)
+![View](https://imgur.com/0D82bTA.jpg)
